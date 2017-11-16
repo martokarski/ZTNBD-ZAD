@@ -11,6 +11,7 @@ from pyspark.sql.functions import *
 from bs4 import BeautifulSoup
 from pyspark.ml.feature import HashingTF, Tokenizer, IDF, VectorAssembler
 from pyspark.ml.classification import DecisionTreeClassifier
+import sys
 
 
 # In[2]:
@@ -30,7 +31,8 @@ sess = sql.SparkSession(sc)
 
 labels = [1, 2, 2]
 set_label = udf(lambda i: labels[i], IntegerType())
-df = sc.wholeTextFiles('pages/*') .map(lambda row: (row[0], row[1].replace('\n', ''))) .toDF(['file', 'content']).withColumn('label', set_label(monotonically_increasing_id()))
+username = sys.argv[1]
+df = sc.wholeTextFiles("hdfs:///user/TZ/%s/ztnbd/*" % (username)) .map(lambda row: (row[0], row[1].replace('\n', ''))) .toDF(['file', 'content']).withColumn('label', set_label(monotonically_increasing_id()))
 
 
 # In[5]:
@@ -47,14 +49,14 @@ from pyspark.ml.param.shared import *
 from pyspark.ml import Transformer, Pipeline
 
 class PageSplitterTransformer(Transformer, HasInputCol):
-    def __init__(self):
-        super().__init__()
+    # def __init__(self):
+    #     super().__init__()
 
     def _transform(self, dataset):
         def split_page(row):
             html = row[1]
             parser = BeautifulSoup(html, 'html5lib')
-            return (row[0], [t.name for t in parser.body.find_all()], parser.body.getText(), str(parser.title.getText()))
+            return (row[0], [t.name for t in parser.body.find_all()], parser.body.getText(), (parser.title.getText()).encode('utf-8').strip())
         
         id_col = str(uuid.uuid1())
         in_col = self.getInputCol()
@@ -104,13 +106,13 @@ pipeline.fit(df).transform(df).select('label', 'prediction').show(truncate=False
 # In[16]:
 
 
-invalid_pipeline = Pipeline(stages=[splitter, body_hasher, body_tokenizer])
+# invalid_pipeline = Pipeline(stages=[splitter, body_hasher, body_tokenizer])
 
 
 # In[17]:
 
 
-invalid_pipeline.fit(df).transform(df)
+# invalid_pipeline.fit(df).transform(df)
 
 
 # In[ ]:
