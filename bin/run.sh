@@ -31,5 +31,5 @@ ssh $SERVER_ADDR << SSH_SESS
 	hdfs dfs -mkdir -p /user/TZ/$SERVER_USER/ztnbd
 	hdfs dfs -copyFromLocal -f resources/pages/*.html /user/TZ/$SERVER_USER/ztnbd/
 	echo "===================== $MAIN_SCRIPT ====================="
-	pipenv run spark-submit "src/$MAIN_SCRIPT" $SERVER_USER $SPARK_STREAM
+	pipenv run spark-submit --conf spark.ui.enabled=true "src/$MAIN_SCRIPT" $SERVER_USER $SPARK_STREAM
 SSH_SESS
