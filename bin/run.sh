@@ -19,14 +19,16 @@ REL_DIR="`dirname \"$0\"`/.."
 ABS_DIR="`( cd \"$REL_DIR\" && pwd )`"
 SERVER_ADDR=$SERVER_USER@$SERVER_HOST
 
-ssh $SERVER_ADDR "rm -rf ~/ztnbd && mkdir ~/ztnbd 2>/dev/null"
-scp "$ABS_DIR/Pipfile" "$SERVER_ADDR:~/ztnbd/Pipfile"
-scp "$ABS_DIR/Pipfile.lock" "$SERVER_ADDR:~/ztnbd/Pipfile.lock"
-scp -r "$ABS_DIR/src" "$SERVER_ADDR:~/ztnbd/src"
-scp -r "$ABS_DIR/modules" "$SERVER_ADDR:~/ztnbd/modules"
-scp -r "$ABS_DIR/resources" "$SERVER_ADDR:~/ztnbd/resources"
+ZTNBD_FILES="$ABS_DIR/Pipfile $ABS_DIR/Pipfile.lock"
+ZTNBD_DIRS="$ABS_DIR/src $ABS_DIR/modules $ABS_DIR/resources"
 
-ssh $SERVER_ADDR << SSH_SESS
+ctl=~/tmpconn
+ssh -fNMS $ctl $SERVER_ADDR # open persistent ssh connection
+ssh -S $ctl $SERVER_ADDR "rm -rf ~/ztnbd && mkdir ~/ztnbd 2>/dev/null"
+scp -o ControlPath=$ctl $ZTNBD_FILES $SERVER_ADDR:~/ztnbd/
+scp -o ControlPath=$ctl -r $ZTNBD_DIRS $SERVER_ADDR:~/ztnbd/
+
+ssh -S $ctl $SERVER_ADDR << SSH_SESS
 	cd ztnbd
 	pipenv install
 	hdfs dfs -mkdir -p /user/TZ/$SERVER_USER/ztnbd
@@ -34,3 +36,5 @@ ssh $SERVER_ADDR << SSH_SESS
 	echo "===================== $MAIN_SCRIPT ====================="
 	pipenv run spark-submit --conf spark.ui.enabled=true "src/$MAIN_SCRIPT" $SERVER_USER $SPARK_STREAM
 SSH_SESS
+
+ssh -S $ctl -O exit $SERVER_ADDR # close persistent connection
