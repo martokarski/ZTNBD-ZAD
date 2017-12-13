@@ -1,3 +1,14 @@
+# Input data
+kascysko.blogspot.com/
+
+# Docker / Jupyter
+.config/
+.local/
+.jupyter/
+.ipython/
+spark_warehouse
+.bash_history
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
