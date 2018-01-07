@@ -1,48 +1,27 @@
 import json
 
+import pyspark
 import pyspark.sql
 from pyspark.ml import Pipeline
-from pyspark.sql.types import StructType, StructField, StringType, MapType, ArrayType
 
-# from modules.posts import SentenceTransformer, PostTransformer, TranslateTransformer
-from module_loader import TransformerModuleManager
+from modules.posts import SentenceTransformer, PostTransformer, TranslateTransformer
 
 
-def generate_column_names(initial, intermediate_count, final):
-    columns = ["__col_{:02d}".format(idx) for idx in range(intermediate_count)]
-    columns.insert(0, initial)
-    columns.append(final)
-    return columns
+sc = pyspark.SparkContext('local[*]', 'PipelineFlow')
+sess = pyspark.sql.SparkSession(sc)
+rdd = sc.wholeTextFiles('data/*')
+rdd = rdd.map(lambda x: (x[0], json.loads(x[1])))
+df = rdd.toDF(['file', 'content'])
 
+poster = PostTransformer().setInputCol('content').setOutputCol('posts')
+translator = TranslateTransformer().setInputCol('posts').setOutputCol('translated')
+sentencer = SentenceTransformer().setInputCol('translated').setOutputCol('sentences')
 
-if __name__ == "__main__":
-    sc = pyspark.SparkContext('local[*]', 'PipelineFlow')
-    sess = pyspark.sql.SparkSession(sc)
-    rdd = sc.wholeTextFiles('data/*')
-    rdd = rdd.map(lambda x: (x[0], json.loads(x[1])))
-    print(type(rdd.take(1)[0][1][0]))
-    schema = StructType([
-        StructField('file', StringType(), True),
-        StructField('content', ArrayType(MapType(StringType(), StringType())), True)
-    ])
-    df = sess.createDataFrame(rdd, schema)
+pipeline = Pipeline(stages=[poster, translator, sentencer])
+out = pipeline.fit(df).transform(df)
+a = out.select('sentences').first().sentences[0]
+b = out.select('sentences').first().sentences[1]
+c = out.select('sentences').first().sentences[2]
+d = out.select('translated').first().translated[0]
 
-    trans_manager = TransformerModuleManager("modules")
-    print("Available transformers' names: {}".format(", ".join(trans_manager.loaded_transformers_names)))
-
-    loaded_transformers = trans_manager.loaded_transformers
-    col_names = generate_column_names("content", len(loaded_transformers) - 1, "sentences")
-
-    stages = list(map(
-        lambda idx, transformer: transformer().setInputCol(col_names[idx]).setOutputCol(col_names[idx + 1]),
-        range(len(loaded_transformers)), loaded_transformers)
-    )
-
-    pipeline = Pipeline(stages=stages)
-    out = pipeline.fit(df).transform(df)
-    a = out.select('sentences').first().sentences[0]
-    b = out.select('sentences').first().sentences[1]
-    c = out.select('sentences').first().sentences[2]
-    # d = out.select('translated').first().translated[0]
-
-    print('{}\n\n{}\n\n{}'.format(a, b, c))
+print('{}\n\n{}\n\n{}\n\n{}'.format(a,b,c,d))
