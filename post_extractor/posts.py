@@ -145,3 +145,43 @@ class SentimentTransformer(Transformer, HasInputCol, HasOutputCol):
             )
         )
         return dataframe.withColumn(out_col, cnt_senti(in_col))
+
+class BasicSpeechPartsTransformer(Transformer, HasInputCol, HasOutputCol):
+    """
+    Klasa BasicSpeechPartsTransformer dziedziczy  po klasach pyspark.ml.Transformer, pyspark.ml.param.shared.HasInputCol,
+    pyspark.ml.param.shared.HasOutputCol. Posiada metodę transform, która przyjmuje na wejściu obiekt typu dataframe.
+    Metoda ta z tekstu zawartego w kolumnie inputCol zlicza wystąpienie podstawowych części mowy (rzeczownik, czasownik, przymiotnik)
+    i wstawia do outputCol w postaci tablicy wartości.
+    """
+    def __init__(self):
+        super().__init__()
+
+    def _transform(self, dataframe):
+        out_col = self.getOutputCol()
+        in_col = self.getInputCol()
+
+        def tags_sum_by_key(tags):
+            types = {}
+
+            for tag in tags:
+                if tag[1] in types:
+                    types[tag[1]] += 1
+                else:
+                    types[tag[1]] = 1
+
+            return types
+        
+        def extract_speech_parts(data):
+            tags = []
+            for post in data:
+                tags.extend(TextBlob(post).tags)
+            speech_parts = tags_sum_by_key(tags)
+            basic_speech_parts = [speech_parts.get("NN",0)+speech_parts.get("NNS",0)+speech_parts.get("NNP",0)+
+                                      speech_parts.get("NNPS",0), #nouns
+                                  speech_parts.get("VB",0)+speech_parts.get("VBD",0)+speech_parts.get("VBG",0)+
+                                      speech_parts.get("VBN",0)+speech_parts.get("VBP",0)+speech_parts.get("VBZ",0), #verbs
+                                  speech_parts.get("JJ",0)+speech_parts.get("JJR",0)+speech_parts.get("JJS",0)] #adjectives
+            return basic_speech_parts
+
+        ext_speech_parts = udf(extract_speech_parts, ArrayType(IntegerType()))
+        return dataframe.withColumn(out_col, ext_speech_parts(in_col))
