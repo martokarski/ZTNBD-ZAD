@@ -28,10 +28,10 @@ scp -r "$ABS_DIR/post_extractor" "$SERVER_ADDR:~/ztnbd/post_extractor"
 
 ssh $SERVER_ADDR << SSH_SESS
 	cd ztnbd
-	pipenv --python 3.6.4 install
+	python3 -m pip install --user pyspark numpy
 
     jupyter nbconvert --to script $MAIN_SCRIPT.ipynb
 
 	echo "===================== $MAIN_SCRIPT.py ====================="
-	pipenv --python 3.6.4 run spark-submit --conf spark.ui.enabled=true $MAIN_SCRIPT.py $SERVER_USER $SPARK_STREAM]
+	python3 $MAIN_SCRIPT.py $SERVER_USER $SPARK_STREAM
 SSH_SESS
